@@ -1,0 +1,142 @@
+CREATE TABLE usuarios (
+    id_usuario INT PRIMARY KEY AUTO_INCREMENT,
+    nome VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    celular VARCHAR(20) UNIQUE,
+    cpf CHAR(11) UNIQUE NOT NULL,
+    senha VARCHAR(255) NOT NULL,
+    tipo_usuario VARCHAR(20) NOT NULL DEFAULT 'comum'
+);
+
+CREATE TABLE categorias (
+    id_categoria INT PRIMARY KEY AUTO_INCREMENT,
+    nome_categoria VARCHAR(50) UNIQUE NOT NULL
+);
+
+CREATE TABLE formas_pagamento (
+    id_forma_pagamento INT PRIMARY KEY AUTO_INCREMENT,
+    descrição VARCHAR(50) UNIQUE NOT NULL
+);
+
+CREATE TABLE faturas (
+    id_fatura INT PRIMARY KEY AUTO_INCREMENT,
+    id_usuario INT NOT NULL,
+    id_categoria INT NOT NULL,
+    id_forma_pagamento INT NOT NULL,
+    descrição VARCHAR(100) NOT NULL,
+    valor DECIMAL(10,2) NOT NULL,
+    data_vencimento DATE NOT NULL,
+    data_pagamento DATE,
+    status_pagamento VARCHAR(20) NOT NULL DEFAULT 'pendente',
+    url_arquivo VARCHAR(255),
+
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (id_categoria) REFERENCES categorias(id_categoria)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (id_forma_pagamento) REFERENCES formas_pagamento(id_forma_pagamento)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+CREATE TABLE logins_usuarios (
+    id_login INT PRIMARY KEY AUTO_INCREMENT,
+    id_usuario INT NOT NULL,
+    data_login DATETIME NOT NULL,
+    ip_acesso VARCHAR(50),
+    dispositivo VARCHAR(100),
+
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE anexos (
+    id_anexo INT PRIMARY KEY AUTO_INCREMENT,
+    id_fatura INT NOT NULL,
+    tipo_arquivo VARCHAR(50) NOT NULL,
+    url_arquivo VARCHAR(255) NOT NULL,
+    data_upload DATETIME NOT NULL,
+
+    FOREIGN KEY (id_fatura) REFERENCES faturas(id_fatura)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+INSERT INTO categorias (nome_categoria) VALUES
+('Moradia'),
+('Alimentação'),
+('Transporte'),
+('Lazer'),
+('Saúde'),
+('Educação'),
+('Serviços Essenciais');
+
+INSERT INTO formas_pagamento (descrição) VALUES
+('PIX'),
+('Boleto Bancário'),
+('Cartão de Crédito'),
+('Cartão de Débito'),
+('Transferência Bancária');
+
+INSERT INTO usuarios (nome, email, celular, cpf, senha, tipo_usuario) VALUES
+('Pedro Silva', 'pedro.silva@example.com', '11122233344', '11122233344', 'senhaPedroHash', 'comum'),
+('Ana Oliveira', 'ana.oliver@example.com', '55566677788', '55566677788', 'senhaAnaHash', 'comum'),
+('Fernando Admin', 'fernando.admin@suaempresa.com', '99988877766', '99988877766', 'senhaFernandoHash', 'admin');
+
+INSERT INTO faturas (id_usuario, id_categoria, id_forma_pagamento, descrição, valor, data_vencimento, data_pagamento, status_pagamento, url_arquivo) VALUES
+(1, 1, 2, 'Aluguel - Julho', 1800.00, '2025-07-10', NULL, 'pendente', 'http://docs.app/aluguel_pedro.pdf'),
+(1, 2, 3, 'Supermercado - Junho', 420.75, '2025-06-15', '2025-06-14', 'pago', NULL),
+(1, 3, 2, 'Parcela Veículo', 550.00, '2025-06-20', NULL, 'atrasado', 'http://docs.app/parcela_pedro.pdf'),
+(1, 4, 4, 'Assinatura Streaming', 79.90, '2025-07-01', NULL, 'pendente', NULL),
+
+(2, 7, 1, 'Conta de Luz', 150.20, '2025-06-25', NULL, 'atrasado', NULL),
+(2, 2, 3, 'Conta Restaurante', 95.00, '2025-06-28', '2025-06-28', 'pago', NULL),
+(2, 5, 2, 'Consulta Médica', 280.00, '2025-07-15', NULL, 'pendente', 'http://docs.app/medica_ana.pdf'),
+(2, 7, 5, 'Conta de Água', 99.90, '2025-06-10', '2025-06-09', 'pago', NULL);
+
+INSERT INTO logins_usuarios (id_usuario, data_login, ip_acesso, dispositivo) VALUES
+(1, '2025-06-28 10:00:00', '192.168.1.10', 'Desktop Chrome'),
+(2, '2025-06-29 09:30:00', '10.0.0.5', 'Mobile Safari'),
+(3, '2025-06-30 14:00:00', '203.0.113.1', 'Laptop Firefox'),
+(1, '2025-06-29 18:00:00', '192.168.1.12', 'Desktop Edge');
+
+INSERT INTO anexos (id_fatura, tipo_arquivo, url_arquivo, data_upload) VALUES
+(2, 'jpg', 'http://docs.app/comprovante_supermercado_pedro.jpg', '2025-06-14 10:30:00'),
+(5, 'pdf', 'http://docs.app/boleto_luz_ana.pdf', '2025-06-20 15:00:00');
+
+-- Exemplo 1: Listar Todas as Faturas Pendentes ou Atrasadas de um Usuário Específico
+-- Objetivo: Mostrar ao usuário quais débitos ele ou ela ainda precisa quitar.
+SELECT
+    f.descrição AS DescricaoFatura,
+    f.valor AS Valor,
+    f.data_vencimento AS DataVencimento,
+    f.status_pagamento AS StatusAtual,
+    c.nome_categoria AS Categoria,
+    fp.descrição AS FormaPagamentoSugerida
+FROM
+    faturas AS f
+JOIN
+    usuarios AS u ON f.id_usuario = u.id_usuario
+JOIN
+    categorias AS c ON f.id_categoria = c.id_categoria
+JOIN
+    formas_pagamento AS fp ON f.id_forma_pagamento = fp.id_forma_pagamento
+WHERE
+    u.email = 'ana.oliver@example.com' AND (f.status_pagamento = 'pendente' OR f.status_pagamento = 'atrasado')
+ORDER BY
+    f.data_vencimento ASC;
+
+-- Exemplo 2: Calcular o Total de Débitos Pagos por Categoria em um Período para Todos os Usuários
+-- Objetivo: Analisar os gastos agregados por categoria em um intervalo de tempo.
+SELECT
+    c.nome_categoria AS Categoria,
+    SUM(f.valor) AS TotalGasto
+FROM
+    faturas AS f
+JOIN
+    categorias AS c ON f.id_categoria = c.id_categoria
+WHERE
+    f.status_pagamento = 'pago'
+    AND f.data_pagamento BETWEEN '2025-06-01' AND '2025-06-30'
+GROUP BY
+    c.nome_categoria
+ORDER BY
+    TotalGasto DESC;
